@@ -6,7 +6,7 @@ import random
 import json
 server_socket = socket.socket()
 host = '127.0.0.1'
-port = 5680
+port = 9680
 try:
     conn = psycopg2.connect(database="postgres",
                         host="204.216.215.242",
@@ -53,20 +53,46 @@ def multi_threaded_client(connection):
             Single_Send.append(User_List_S[4])
             data_Total = json.dumps({"a": Single_Send, "b": Multiple_Send})
             print(data_Total)
-            socket.send(data_Total.encode())
+            connection.send(data_Total.encode())
             point_return = connection.recv(2048)
+            print(point_return)
             point = 1000
             
-        if data == "LeaderBoard":
-            Board_Sending = score_board.fetchall()
+        if data.decode('utf-8') == "LeaderBoard":
+            cur.execute("SELECT * FROM users")
+            Board_Sending = cur.fetchall()
             data_Total = json.dumps({"a": Board_Sending})
-            socket.send(data_Total.encode())
+            print(Board_Sending)
+            connection.send(data_Total.encode())
             print("SendLeaderboard")
-        if data == "Authenticate":
-
-            data = connection.recv(2048)
-            print("authenticate")
-
+        if data.decode('utf-8') == "Authenticate":
+            print("ciao")
+            user_get = connection.recv(2048).decode('utf-8')
+            data_user = json.loads(user_get)
+            cur.execute("SELECT * FROM users WHERE username = %s", (data_user.get("a"),))
+            row = cur.fetchone()
+            status_log = "True"
+            if(row[2] == data_user.get("b")):
+                status_log = "True"
+                User = data_user.get("a")
+                Password = data_user.get("b")
+            else:
+                status_log = "False"
+            connection.send(status_log.encode())
+        if data.decode('utf-8') == "Register":
+            user_get = connection.recv(2048).decode('utf-8')
+            data_user = json.loads(user_get)
+            cur.execute("SELECT * FROM users WHERE username = %s", (data_user.get("a"),))
+            row = cur.fetchone()
+            if row:
+                connection.send(str.encode("Failed"))
+            else :
+                User = data_user.get("a")
+                Password = data_user.get("b")
+                cur.execute("INSERT INTO users (username, password, points) VALUES (%s, %s, %s)", 
+                ("aryan", "sood", "0"))
+                conn.commit()
+                connection.send(str.encode("Succsess"))
 
         #connection.sendall(str.encode(response))
     connection.close()
